@@ -1,0 +1,71 @@
+.movie-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  cursor: default;
+  touch-action: auto;
+  transition: box-shadow 0.2s;
+  position: relative;
+}
+
+.movie-card.edit-mode {
+  cursor: grab;
+  touch-action: none;
+}
+
+.movie-card.edit-mode:active {
+  cursor: grabbing;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.movie-position {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #4CAF50;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.movie-image {
+  width: 80px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.movie-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  word-wrap: break-word;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.btn-delete {
+  background: #f44336;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.btn-delete:active {
+  background: #da190b;
+  transform: scale(0.95);
+}

@@ -1,0 +1,29 @@
+# Backend Dockerfile - Servidor Node.js con Express
+FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install only production dependencies
+RUN pnpm install --prod --frozen-lockfile
+
+# Copy server files
+COPY server/server.js ./server.js
+COPY server/data.json ./data.json
+
+# Create directory for data
+RUN mkdir -p /app/data
+
+# Create volume for persistent data (different from server code)
+VOLUME ["/app/data"]
+
+# Expose port
+EXPOSE 3000
+
+# Start the server
+CMD ["node", "server.js"]

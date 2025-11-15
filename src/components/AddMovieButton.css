@@ -1,0 +1,27 @@
+.add-movie-button {
+  width: 100%;
+  padding: 1rem;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  transition: all 0.2s;
+}
+
+.add-movie-button:active {
+  background: #45a049;
+  transform: scale(0.98);
+}
+
+.plus-icon {
+  font-size: 1.5rem;
+  font-weight: bold;
+}

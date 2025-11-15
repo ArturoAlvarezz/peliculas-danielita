@@ -1,0 +1,31 @@
+{
+  "topMovies": [
+    {
+      "id": "1",
+      "title": "El Señor de los Anillos",
+      "imageUrl": "https://via.placeholder.com/200x300/8B4513/fff?text=LOTR"
+    },
+    {
+      "id": "2",
+      "title": "Star Wars",
+      "imageUrl": "https://via.placeholder.com/200x300/000000/fff?text=Star+Wars"
+    },
+    {
+      "id": "3",
+      "title": "Titanic",
+      "imageUrl": "https://via.placeholder.com/200x300/1E90FF/fff?text=Titanic"
+    }
+  ],
+  "watchList": [
+    {
+      "id": "4",
+      "title": "Inception",
+      "imageUrl": "https://via.placeholder.com/200x300/4169E1/fff?text=Inception"
+    },
+    {
+      "id": "5",
+      "title": "Interestelar",
+      "imageUrl": "https://via.placeholder.com/200x300/191970/fff?text=Interestelar"
+    }
+  ]
+}
