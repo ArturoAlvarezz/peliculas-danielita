@@ -6,6 +6,11 @@ export interface Movie {
   id: string
   title: string
   imageUrl: string
+  imdbId?: string
+  year?: number
+  rating?: number
+  voteCount?: number
+  type?: string
 }
 
 // Usar variable de entorno o fallback para desarrollo local

@@ -25,11 +25,29 @@ interface MovieListProps {
   setMovies: (movies: Movie[]) => void
 }
 
+interface IMDbTitle {
+  id: string
+  type: string
+  primaryTitle: string
+  originalTitle: string
+  primaryImage?: {
+    url: string
+    width: number
+    height: number
+  }
+  startYear: number
+  rating?: {
+    aggregateRating: number
+    voteCount: number
+  }
+}
+
 export function MovieList({ title, movies, setMovies }: MovieListProps) {
   const [isEditMode, setIsEditMode] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newMovieTitle, setNewMovieTitle] = useState('')
-  const [newMovieImage, setNewMovieImage] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<IMDbTitle[]>([])
+  const [isSearching, setIsSearching] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -53,18 +71,39 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
     }
   }
 
-  const handleAddMovie = () => {
-    if (newMovieTitle.trim()) {
-      const newMovie: Movie = {
-        id: Date.now().toString(),
-        title: newMovieTitle,
-        imageUrl: newMovieImage || `https://via.placeholder.com/200x300/FF6347/fff?text=${encodeURIComponent(newMovieTitle)}`,
-      }
-      setMovies([...movies, newMovie])
-      setNewMovieTitle('')
-      setNewMovieImage('')
-      setShowAddForm(false)
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return
+    
+    setIsSearching(true)
+    try {
+      const response = await fetch(
+        `https://api.imdbapi.dev/search/titles?query=${encodeURIComponent(searchQuery)}&limit=10`
+      )
+      const data = await response.json()
+      setSearchResults(data.titles || [])
+    } catch (error) {
+      console.error('Error al buscar películas:', error)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
     }
+  }
+
+  const handleSelectMovie = (imdbMovie: IMDbTitle) => {
+    const newMovie: Movie = {
+      id: Date.now().toString(),
+      title: imdbMovie.primaryTitle,
+      imageUrl: imdbMovie.primaryImage?.url || `https://via.placeholder.com/200x300/FF6347/fff?text=${encodeURIComponent(imdbMovie.primaryTitle)}`,
+      imdbId: imdbMovie.id,
+      year: imdbMovie.startYear,
+      rating: imdbMovie.rating?.aggregateRating,
+      voteCount: imdbMovie.rating?.voteCount,
+      type: imdbMovie.type
+    }
+    setMovies([...movies, newMovie])
+    setSearchQuery('')
+    setSearchResults([])
+    setShowAddForm(false)
   }
 
   const handleDeleteMovie = (id: string) => {
@@ -107,29 +146,59 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
 
       {isEditMode && (showAddForm ? (
         <div className="add-movie-form">
-          <input
-            type="text"
-            placeholder="Título de la película"
-            value={newMovieTitle}
-            onInput={(e) => setNewMovieTitle((e.target as HTMLInputElement).value)}
-            className="movie-input"
-          />
-          <input
-            type="text"
-            placeholder="URL de la imagen (opcional)"
-            value={newMovieImage}
-            onInput={(e) => setNewMovieImage((e.target as HTMLInputElement).value)}
-            className="movie-input"
-          />
-          <div className="form-buttons">
-            <button onClick={handleAddMovie} className="btn-save">
-              Guardar
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Buscar película en IMDb..."
+              value={searchQuery}
+              onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="movie-input"
+            />
+            <button 
+              onClick={handleSearch} 
+              className="btn-search"
+              disabled={isSearching}
+            >
+              {isSearching ? '🔍 Buscando...' : '🔍 Buscar'}
             </button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="search-results">
+              {searchResults.map((result) => (
+                <div 
+                  key={result.id} 
+                  className="search-result-item"
+                  onClick={() => handleSelectMovie(result)}
+                >
+                  <img 
+                    src={result.primaryImage?.url || 'https://via.placeholder.com/80x120/cccccc/666666?text=Sin+Imagen'} 
+                    alt={result.primaryTitle}
+                    className="result-image"
+                  />
+                  <div className="result-info">
+                    <h4 className="result-title">{result.primaryTitle}</h4>
+                    <div className="result-meta">
+                      <span className="result-year">📅 {result.startYear}</span>
+                      {result.rating && (
+                        <span className="result-rating">
+                          ⭐ {result.rating.aggregateRating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="form-buttons">
             <button
               onClick={() => {
                 setShowAddForm(false)
-                setNewMovieTitle('')
-                setNewMovieImage('')
+                setSearchQuery('')
+                setSearchResults([])
               }}
               className="btn-cancel"
             >

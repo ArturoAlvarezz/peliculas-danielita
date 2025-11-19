@@ -42,29 +42,44 @@ const getInitialData = () => ({
     {
       id: '1',
       title: 'El Señor de los Anillos',
-      imageUrl: 'https://via.placeholder.com/200x300/8B4513/fff?text=LOTR'
+      imageUrl: 'https://via.placeholder.com/200x300/8B4513/fff?text=LOTR',
+      year: 2001,
+      rating: 8.8,
+      type: 'movie'
     },
     {
       id: '2',
       title: 'Star Wars',
-      imageUrl: 'https://via.placeholder.com/200x300/000000/fff?text=Star+Wars'
+      imageUrl: 'https://via.placeholder.com/200x300/000000/fff?text=Star+Wars',
+      year: 1977,
+      rating: 8.6,
+      type: 'movie'
     },
     {
       id: '3',
       title: 'Titanic',
-      imageUrl: 'https://via.placeholder.com/200x300/1E90FF/fff?text=Titanic'
+      imageUrl: 'https://via.placeholder.com/200x300/1E90FF/fff?text=Titanic',
+      year: 1997,
+      rating: 7.9,
+      type: 'movie'
     }
   ],
   watchList: [
     {
       id: '4',
       title: 'Inception',
-      imageUrl: 'https://via.placeholder.com/200x300/4169E1/fff?text=Inception'
+      imageUrl: 'https://via.placeholder.com/200x300/4169E1/fff?text=Inception',
+      year: 2010,
+      rating: 8.8,
+      type: 'movie'
     },
     {
       id: '5',
       title: 'Interestelar',
-      imageUrl: 'https://via.placeholder.com/200x300/191970/fff?text=Interestelar'
+      imageUrl: 'https://via.placeholder.com/200x300/191970/fff?text=Interestelar',
+      year: 2014,
+      rating: 8.6,
+      type: 'movie'
     }
   ]
 });

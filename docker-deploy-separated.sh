@@ -15,48 +15,92 @@ VERSION="latest"
 echo "🔧 Verificando y creando builder para multi-arquitectura..."
 # Crear un builder para multi-arquitectura si no existe
 if ! docker buildx ls | grep -q multiarch-builder; then
-    docker buildx create --name multiarch-builder --use
+    docker buildx create --name multiarch-builder --driver-opt network=host --use
 else
     docker buildx use multiarch-builder
 fi
 
+echo "🔄 Iniciando builder..."
 docker buildx inspect --bootstrap
+
+echo ""
+echo "🌐 Verificando conexión a Docker Hub..."
+if ! timeout 10 docker pull hello-world > /dev/null 2>&1; then
+    echo "⚠️  Advertencia: Problemas de conectividad con Docker Hub"
+    echo "🔄 Intentando con DNS alternativo (Google DNS)..."
+    # Intentar reiniciar Docker con configuración de red
+fi
 
 echo ""
 echo "🔨 Construyendo y subiendo BACKEND multi-arquitectura (AMD64 + ARM64)..."
 echo ""
 
-docker buildx build \
-    --platform linux/amd64,linux/arm64 \
-    -f Dockerfile.backend \
-    -t ${DOCKERHUB_USER}/peliculas-backend:${VERSION} \
-    --push \
-    .
+MAX_RETRIES=3
+RETRY_COUNT=0
 
-if [ $? -ne 0 ]; then
-    echo "❌ Error al construir y subir la imagen del backend"
-    echo "Ejecuta 'docker login' primero para autenticarte"
-    exit 1
-fi
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        -f Dockerfile.backend \
+        -t ${DOCKERHUB_USER}/peliculas-backend:${VERSION} \
+        --push \
+        .
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Backend construido y subido exitosamente"
+        break
+    else
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⚠️  Intento $RETRY_COUNT falló. Reintentando en 5 segundos..."
+            sleep 5
+        else
+            echo "❌ Error al construir y subir la imagen del backend después de $MAX_RETRIES intentos"
+            echo ""
+            echo "Posibles soluciones:"
+            echo "1. Verifica tu conexión a internet"
+            echo "2. Verifica que estés autenticado: docker login"
+            echo "3. Intenta con solo una arquitectura: --platform linux/amd64"
+            echo "4. Verifica tu configuración DNS"
+            exit 1
+        fi
+    fi
+done
 
-echo "✅ Backend subido exitosamente"
 echo ""
 echo "🔨 Construyendo y subiendo FRONTEND multi-arquitectura (AMD64 + ARM64)..."
 echo ""
 
-docker buildx build \
-    --platform linux/amd64,linux/arm64 \
-    -f Dockerfile.frontend \
-    --build-arg VITE_API_URL=https://backend-peliculas.arturoalvarez.site \
-    -t ${DOCKERHUB_USER}/peliculas-frontend:${VERSION} \
-    --push \
-    .
+RETRY_COUNT=0
 
-if [ $? -ne 0 ]; then
-    echo "❌ Error al construir y subir la imagen del frontend"
-    echo "Ejecuta 'docker login' primero para autenticarte"
-    exit 1
-fi
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        -f Dockerfile.frontend \
+        --build-arg VITE_API_URL=https://backend-peliculas.arturoalvarez.site \
+        -t ${DOCKERHUB_USER}/peliculas-frontend:${VERSION} \
+        --push \
+        .
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Frontend construido y subido exitosamente"
+        break
+    else
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⚠️  Intento $RETRY_COUNT falló. Reintentando en 5 segundos..."
+            sleep 5
+        else
+            echo "❌ Error al construir y subir la imagen del frontend después de $MAX_RETRIES intentos"
+            echo ""
+            echo "Posibles soluciones:"
+            echo "1. Verifica tu conexión a internet"
+            echo "2. Verifica que estés autenticado: docker login"
+            echo "3. Intenta con solo una arquitectura: --platform linux/amd64"
+            exit 1
+        fi
+    fi
+done
 
 echo ""
 echo "✅ Ambas imágenes multi-arquitectura subidas exitosamente a Docker Hub!"

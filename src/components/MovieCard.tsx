@@ -36,7 +36,24 @@ export function MovieCard({ movie, index, onDelete, isEditMode }: MovieCardProps
     >
       <div className="movie-position">{index + 1}</div>
       <img src={movie.imageUrl} alt={movie.title} className="movie-image" />
-      <h3 className="movie-title">{movie.title}</h3>
+      <div className="movie-details">
+        <h3 className="movie-title">{movie.title}</h3>
+        <div className="movie-metadata">
+          {movie.year && (
+            <span className="movie-year">📅 {movie.year}</span>
+          )}
+          {movie.rating && (
+            <span className="movie-rating">⭐ {movie.rating.toFixed(1)}</span>
+          )}
+          {movie.type && movie.type !== 'movie' && (
+            <span className="movie-type">
+              {movie.type === 'tvSeries' ? '📺 Serie' : 
+               movie.type === 'tvMiniSeries' ? '📺 Miniserie' :
+               movie.type === 'tvMovie' ? '📺 TV' : '🎬'}
+            </span>
+          )}
+        </div>
+      </div>
       {isEditMode && (
         <button
           className="btn-delete"
