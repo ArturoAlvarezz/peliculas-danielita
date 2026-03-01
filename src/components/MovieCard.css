@@ -10,6 +10,10 @@
   touch-action: auto;
   transition: box-shadow 0.2s;
   position: relative;
+  max-width: 400px;
+  width: 90%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .movie-card.edit-mode {
@@ -63,9 +67,7 @@
   font-size: 0.875rem;
 }
 
-.movie-year,
-.movie-rating,
-.movie-type {
+.movie-year, .movie-rating, .movie-type {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
