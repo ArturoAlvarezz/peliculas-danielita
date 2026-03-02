@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  peliculas-frontend:
+    image: arturoalvarez/peliculas-frontend:latest
+    container_name: peliculas-frontend
+    ports:
+      - "8067:80"
+    networks:
+      - peliculas-network
+    restart: unless-stopped
+
+  peliculas-backend:
+    image: arturoalvarez/peliculas-backend:latest
+    container_name: peliculas-backend
+    ports:
+      - "8068:3000"
+    volumes:
+      - /home/artulita/peliculas-data:/app/data
+    networks:
+      - peliculas-network
+    restart: unless-stopped
+    environment:
+      - DATA_DIR=/app/data
+
+networks:
+  peliculas-network:
+    driver: bridge
