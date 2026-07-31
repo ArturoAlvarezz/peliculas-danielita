@@ -32,11 +32,13 @@ pnpm install --frozen-lockfile
 | Variable | Dónde se configura | Obligatoria | Uso |
 | --- | --- | --- | --- |
 | `OMDB_API_KEY` | Backend o contenedor, en runtime | Sí para buscar películas | Clave privada para consultar OMDb. No debe comenzar con `VITE_`. |
+| `TMDB_API_KEY` | Backend o contenedor, en runtime | Sí para plataformas | Clave privada para consultar disponibilidad en TMDB/JustWatch. |
+| `WATCH_REGION` | Backend o contenedor, en runtime | No | Región ISO 3166-1 usada para disponibilidad. Por defecto `CL` (Chile). |
 | `DATA_DIR` | Backend o contenedor, en runtime | No | Directorio del archivo `data.json`. En Docker se usa `/app/data`. |
 | `PORT` | Backend o contenedor, en runtime | No | Puerto de Express. Por defecto es `3000`. |
 | `VITE_API_URL` | Frontend, durante desarrollo o build | No | Origin del backend sin `/api`. La imagen unificada usa `__SAME_ORIGIN__`. |
 
-`VITE_*` se incorpora al JavaScript del navegador, por lo que nunca se debe colocar `OMDB_API_KEY` allí. El backend no carga archivos `.env` automáticamente; la clave debe estar exportada en la shell o pasarla explícitamente al contenedor.
+`VITE_*` se incorpora al JavaScript del navegador, por lo que nunca se deben colocar `OMDB_API_KEY` ni `TMDB_API_KEY` allí. El backend no carga archivos `.env` automáticamente; las claves deben estar exportadas en la shell o pasarla explícitamente al contenedor.
 
 ## Desarrollo Local
 
@@ -44,7 +46,10 @@ Usar dos terminales. En la primera, configurar la clave y arrancar Express con u
 
 ```bash
 export OMDB_API_KEY="tu-clave-de-omdb"
+export TMDB_API_KEY="tu-clave-de-tmdb"
 OMDB_API_KEY="$OMDB_API_KEY" \
+TMDB_API_KEY="$TMDB_API_KEY" \
+WATCH_REGION=CL \
 DATA_DIR=/tmp/peliculas-danielita-data \
 pnpm dev:server
 ```
@@ -106,6 +111,8 @@ docker run -d \
   -p 3000:3000 \
   -v peliculas-data:/app/data \
   -e OMDB_API_KEY="$OMDB_API_KEY" \
+  -e TMDB_API_KEY="$TMDB_API_KEY" \
+  -e WATCH_REGION="${WATCH_REGION:-CL}" \
   peliculas-danielita:latest
 ```
 
@@ -188,8 +195,11 @@ Endpoints principales:
 - `PUT /api/movies/watchlist`: reemplaza la lista para ver con el array enviado.
 - `GET /api/movies/search?query=Batman`: busca películas en OMDb desde el backend.
 - `GET /api/movies/details/:imdbId`: obtiene la puntuación IMDb y los votos de un título.
+- `GET /api/movies/providers/:imdbId`: obtiene plataformas disponibles para la región configurada.
 
 El backend inicializa el archivo con los datos definidos en `getInitialData()` cuando el archivo persistente todavía no existe. El archivo rastreado `server/data.json` solo se utiliza si `DATA_DIR` apunta explícitamente a `server`.
+
+La disponibilidad de plataformas la proporciona TMDB mediante datos de JustWatch. Se muestra para la región `WATCH_REGION` y requiere atribución a JustWatch; no está incluida en OMDb.
 
 ## Flujo Legacy
 

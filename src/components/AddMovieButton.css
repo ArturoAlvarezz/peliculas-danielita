@@ -1,8 +1,9 @@
 .add-movie-button {
   width: 100%;
+  min-height: 48px;
   padding: 1rem;
-  background: #4CAF50;
-  color: white;
+  background: var(--success);
+  color: #ffffff;
   border: none;
   border-radius: 12px;
   font-size: 1.1rem;
@@ -12,12 +13,12 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  box-shadow: var(--shadow-card);
   transition: all 0.2s;
 }
 
 .add-movie-button:active {
-  background: #45a049;
+  background: var(--success-active);
   transform: scale(0.98);
 }
 

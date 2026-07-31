@@ -1,9 +1,10 @@
-import { useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
@@ -54,12 +55,20 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
   const [searchResults, setSearchResults] = useState<OMDbMovie[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const searchRequestId = useRef(0)
+  const searchDebounce = useRef<number | null>(null)
   const titleId = `movie-list-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -78,14 +87,23 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
     }
   }
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return
-    
+  const searchMovies = async (query: string, signal?: AbortSignal) => {
+    const requestId = ++searchRequestId.current
+    const normalizedQuery = query.trim()
+
+    if (!normalizedQuery) {
+      setSearchResults([])
+      setSearchError('')
+      setIsSearching(false)
+      return
+    }
+
     setIsSearching(true)
     setSearchError('')
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/movies/search?query=${encodeURIComponent(searchQuery)}`
+        `${API_BASE_URL}/api/movies/search?query=${encodeURIComponent(normalizedQuery)}`,
+        signal ? { signal } : undefined
       )
       const data = await response.json() as OMDbSearchResponse
 
@@ -94,17 +112,57 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
       }
 
       const results = data.Search || []
+      if (requestId !== searchRequestId.current) return
+
       setSearchResults(results)
       if (results.length === 0) {
         setSearchError('No se encontraron películas con esa búsqueda.')
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return
+      if (requestId !== searchRequestId.current) return
       console.error('Error al buscar películas:', error)
       setSearchResults([])
       setSearchError(error instanceof Error ? error.message : 'No se pudo buscar películas')
     } finally {
-      setIsSearching(false)
+      if (requestId === searchRequestId.current) setIsSearching(false)
     }
+  }
+
+  useEffect(() => {
+    const query = searchQuery.trim()
+    const controller = new AbortController()
+
+    if (searchDebounce.current !== null) {
+      window.clearTimeout(searchDebounce.current)
+    }
+
+    setSearchError('')
+    if (!query) {
+      void searchMovies('', controller.signal)
+      return () => controller.abort()
+    }
+
+    setSearchResults([])
+    setIsSearching(true)
+    const timeoutId = window.setTimeout(() => {
+      void searchMovies(query, controller.signal)
+    }, 300)
+    searchDebounce.current = timeoutId
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      controller.abort()
+      if (searchDebounce.current === timeoutId) searchDebounce.current = null
+    }
+  }, [searchQuery])
+
+  const handleSearch = () => {
+    if (searchDebounce.current !== null) {
+      window.clearTimeout(searchDebounce.current)
+      searchDebounce.current = null
+    }
+    void searchMovies(searchQuery)
   }
 
   const handleSelectMovie = async (omdbMovie: OMDbMovie) => {
@@ -165,6 +223,9 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
           {isEditMode ? '✓ Listo' : '✏️ Editar'}
         </button>
       </div>
+      {isEditMode && (
+        <p className="edit-hint" role="status">Usa el asa de cada tarjeta para reordenar sin bloquear el scroll.</p>
+      )}
       <DndContext
         sensors={isEditMode ? sensors : []}
         collisionDetection={closestCenter}
@@ -204,18 +265,16 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
               placeholder="Buscar película en OMDb..."
               value={searchQuery}
               aria-label="Buscar película"
+              aria-busy={isSearching}
               aria-describedby={searchError ? `${titleId}-search-error` : undefined}
               onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
               className="movie-input"
             />
-            <button 
-              type="submit"
-              className="btn-search"
-              disabled={isSearching}
-            >
-              {isSearching ? '🔍 Buscando...' : '🔍 Buscar'}
-            </button>
           </div>
+
+          {isSearching && (
+            <p className="search-status" role="status" aria-live="polite">Buscando películas...</p>
+          )}
 
           {searchError && (
             <p id={`${titleId}-search-error`} className="search-error" role="alert">{searchError}</p>

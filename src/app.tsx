@@ -14,6 +14,13 @@ export interface Movie {
   type?: string
 }
 
+export interface StreamingProvider {
+  id: number
+  name: string
+  logoUrl: string | null
+  types: string[]
+}
+
 export function App() {
   const [topMovies, setTopMovies] = useState<Movie[]>([])
   const [watchList, setWatchList] = useState<Movie[]>([])
@@ -109,6 +116,11 @@ export function App() {
         movies={watchList}
         setMovies={updateWatchList}
       />
+      <footer className="app-attribution">
+        Disponibilidad de plataformas basada en datos de{' '}
+        <a href="https://www.justwatch.com" target="_blank" rel="noreferrer">JustWatch</a>{' '}
+        a través de <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer">TMDB</a>.
+      </footer>
     </main>
   )
 }

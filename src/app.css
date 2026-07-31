@@ -7,7 +7,7 @@
 
 .app-container {
   padding: 1.25rem 0 2rem;
-  background: #f5f7f6;
+  background: var(--page-bg);
   min-height: 100vh;
 }
 
@@ -17,7 +17,7 @@
 
 .app-kicker {
   margin-bottom: 0.35rem;
-  color: #2e7d32;
+  color: var(--success);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -25,7 +25,7 @@
 }
 
 .app-title {
-  color: #183027;
+  color: var(--text);
   font-size: clamp(1.7rem, 7vw, 2.25rem);
   line-height: 1.05;
   letter-spacing: -0.03em;
@@ -34,8 +34,22 @@
 .app-subtitle {
   max-width: 34rem;
   margin-top: 0.6rem;
-  color: #5c6b64;
+  color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+.app-attribution {
+  margin: 1.5rem 1rem 0;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.app-attribution a {
+  color: var(--primary-active);
+  font-weight: 700;
 }
 
 .loading {
@@ -44,7 +58,7 @@
   align-items: center;
   min-height: 50vh;
   font-size: 1.2rem;
-  color: #666;
+  color: var(--text-muted);
   padding: 2rem;
   text-align: center;
 }
@@ -55,10 +69,10 @@
   gap: 1rem;
   margin: 2rem 1rem;
   padding: 1.25rem;
-  border: 1px solid #f3b6b6;
+  border: 1px solid var(--error-border);
   border-radius: 12px;
-  color: #7d1d1d;
-  background: #fff5f5;
+  color: var(--error-text);
+  background: var(--error-bg);
   text-align: center;
 }
 
@@ -67,8 +81,8 @@
   padding: 0.65rem 1rem;
   border: 0;
   border-radius: 8px;
-  color: white;
-  background: #1565c0;
+  color: #ffffff;
+  background: var(--focus);
   font-weight: 700;
   cursor: pointer;
 }

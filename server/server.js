@@ -13,6 +13,12 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
 const OMDB_API_URL = 'https://www.omdbapi.com/';
+const TMDB_API_URL = 'https://api.themoviedb.org/3';
+const TMDB_IMAGE_URL = 'https://image.tmdb.org/t/p/w92';
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const WATCH_REGION = (process.env.WATCH_REGION || 'CL').toUpperCase();
+const providerCache = new Map();
+const PROVIDER_CACHE_TTL = 6 * 60 * 60 * 1000;
 
 // Crear directorio de datos si no existe
 try {
@@ -146,6 +152,17 @@ async function fetchOmdbDetails(imdbId, apiKey) {
   return data;
 }
 
+async function fetchTmdb(pathname, params = {}) {
+  const query = new URLSearchParams({
+    api_key: TMDB_API_KEY,
+    ...params
+  });
+  const response = await fetch(`${TMDB_API_URL}${pathname}?${query}`);
+
+  if (!response.ok) throw new Error(`TMDB request failed with ${response.status}`);
+  return response.json();
+}
+
 async function enrichMovieRatings(data) {
   const apiKey = process.env.OMDB_API_KEY;
   const movies = [...data.topMovies, ...data.watchList];
@@ -256,6 +273,79 @@ app.get('/api/movies/details/:imdbId', async (req, res) => {
   } catch (error) {
     console.error('Error getting OMDb movie details:', error);
     return res.status(502).json({ error: 'No se pudo consultar OMDb' });
+  }
+});
+
+// GET - Obtener plataformas disponibles por región desde TMDB/JustWatch
+app.get('/api/movies/providers/:imdbId', async (req, res) => {
+  const { imdbId } = req.params;
+
+  if (!/^tt\d+$/.test(imdbId)) {
+    return res.status(400).json({ error: 'IMDb ID inválido' });
+  }
+
+  if (!TMDB_API_KEY) {
+    return res.status(503).json({
+      error: 'TMDB_API_KEY no está configurada en el servidor',
+      region: WATCH_REGION,
+      providers: []
+    });
+  }
+
+  const cacheKey = `${WATCH_REGION}:${imdbId}`;
+  const cached = providerCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < PROVIDER_CACHE_TTL) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const matches = await fetchTmdb(`/find/${imdbId}`, { external_source: 'imdb_id' });
+    const movie = matches.movie_results?.[0];
+
+    if (!movie) {
+      const emptyData = { region: WATCH_REGION, providers: [], link: null };
+      providerCache.set(cacheKey, { timestamp: Date.now(), data: emptyData });
+      return res.json(emptyData);
+    }
+
+    const watchProviders = await fetchTmdb(`/movie/${movie.id}/watch/providers`);
+    const regionData = watchProviders.results?.[WATCH_REGION];
+    const providerGroups = [
+      ['Streaming', regionData?.flatrate],
+      ['Gratis', regionData?.free],
+      ['Con anuncios', regionData?.ads],
+      ['Alquiler', regionData?.rent],
+      ['Compra', regionData?.buy]
+    ];
+    const providersById = new Map();
+
+    for (const [type, providers] of providerGroups) {
+      for (const provider of providers || []) {
+        const current = providersById.get(provider.provider_id) || {
+          id: provider.provider_id,
+          name: provider.provider_name,
+          logoUrl: provider.logo_path ? `${TMDB_IMAGE_URL}${provider.logo_path}` : null,
+          types: []
+        };
+        if (!current.types.includes(type)) current.types.push(type);
+        providersById.set(provider.provider_id, current);
+      }
+    }
+
+    const result = {
+      region: WATCH_REGION,
+      providers: [...providersById.values()],
+      link: regionData?.link || null
+    };
+    providerCache.set(cacheKey, { timestamp: Date.now(), data: result });
+    return res.json(result);
+  } catch (error) {
+    console.error(`Error getting providers for ${imdbId}:`, error);
+    return res.status(502).json({
+      error: 'No se pudo consultar la disponibilidad',
+      region: WATCH_REGION,
+      providers: []
+    });
   }
 });
 
