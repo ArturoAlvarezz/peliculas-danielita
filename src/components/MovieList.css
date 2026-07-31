@@ -149,6 +149,14 @@
   cursor: not-allowed;
 }
 
+.search-error {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  color: #8b1e1e;
+  background: #ffebee;
+}
+
 .search-results {
   max-height: 400px;
   overflow-y: auto;

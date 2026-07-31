@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 // Usar /app/data para persistencia o fallback a la ubicación actual
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
+const OMDB_API_URL = 'https://www.omdbapi.com/';
 
 // Crear directorio de datos si no existe
 try {
@@ -123,6 +124,49 @@ async function writeData(data) {
     return false;
   }
 }
+
+// GET - Buscar películas en OMDb sin exponer la clave al navegador
+app.get('/api/movies/search', async (req, res) => {
+  const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+  const apiKey = process.env.OMDB_API_KEY;
+
+  if (!query) {
+    return res.status(400).json({ error: 'Se requiere un texto de búsqueda' });
+  }
+
+  if (!apiKey) {
+    return res.status(503).json({ error: 'OMDB_API_KEY no está configurada en el servidor' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      apikey: apiKey,
+      s: query,
+      type: 'movie',
+      page: '1',
+      r: 'json'
+    });
+    const response = await fetch(`${OMDB_API_URL}?${params}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(502).json({ error: 'No se pudo consultar OMDb' });
+    }
+
+    if (data.Response === 'False') {
+      if (data.Error === 'Movie not found!') {
+        return res.json({ Search: [] });
+      }
+
+      return res.status(502).json({ error: data.Error || 'No se pudo buscar en OMDb' });
+    }
+
+    return res.json({ Search: data.Search || [] });
+  } catch (error) {
+    console.error('Error searching OMDb:', error);
+    return res.status(502).json({ error: 'No se pudo consultar OMDb' });
+  }
+});
 
 // GET - Obtener todas las películas
 app.get('/api/movies', async (req, res) => {

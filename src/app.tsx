@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks'
 import './app.css'
 import { MovieList } from './components/MovieList'
+import { API_BASE_URL, API_URL } from './config'
 
 export interface Movie {
   id: string
@@ -12,10 +13,6 @@ export interface Movie {
   voteCount?: number
   type?: string
 }
-
-// Usar variable de entorno o fallback para desarrollo local
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backend-peliculas.arturoalvarez.site';
-const API_URL = `${API_BASE_URL}/api/movies`;
 
 export function App() {
   const [topMovies, setTopMovies] = useState<Movie[]>([])

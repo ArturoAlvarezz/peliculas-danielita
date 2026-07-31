@@ -17,6 +17,7 @@ import {
 import { MovieCard } from './MovieCard'
 import { AddMovieButton } from './AddMovieButton'
 import type { Movie } from '../app'
+import { API_BASE_URL } from '../config'
 import './MovieList.css'
 
 interface MovieListProps {
@@ -25,29 +26,27 @@ interface MovieListProps {
   setMovies: (movies: Movie[]) => void
 }
 
-interface IMDbTitle {
-  id: string
-  type: string
-  primaryTitle: string
-  originalTitle: string
-  primaryImage?: {
-    url: string
-    width: number
-    height: number
-  }
-  startYear: number
-  rating?: {
-    aggregateRating: number
-    voteCount: number
-  }
+interface OMDbMovie {
+  Title: string
+  Year: string
+  imdbID: string
+  Type: string
+  Poster: string
+}
+
+interface OMDbSearchResponse {
+  Search?: OMDbMovie[]
+  Error?: string
+  error?: string
 }
 
 export function MovieList({ title, movies, setMovies }: MovieListProps) {
   const [isEditMode, setIsEditMode] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<IMDbTitle[]>([])
+  const [searchResults, setSearchResults] = useState<OMDbMovie[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -75,34 +74,46 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
     if (!searchQuery.trim()) return
     
     setIsSearching(true)
+    setSearchError('')
     try {
       const response = await fetch(
-        `https://api.imdbapi.dev/search/titles?query=${encodeURIComponent(searchQuery)}&limit=10`
+        `${API_BASE_URL}/api/movies/search?query=${encodeURIComponent(searchQuery)}`
       )
-      const data = await response.json()
-      setSearchResults(data.titles || [])
+      const data = await response.json() as OMDbSearchResponse
+
+      if (!response.ok) {
+        throw new Error(data.error || data.Error || 'No se pudo buscar películas')
+      }
+
+      const results = data.Search || []
+      setSearchResults(results)
+      if (results.length === 0) {
+        setSearchError('No se encontraron películas con esa búsqueda.')
+      }
     } catch (error) {
       console.error('Error al buscar películas:', error)
       setSearchResults([])
+      setSearchError(error instanceof Error ? error.message : 'No se pudo buscar películas')
     } finally {
       setIsSearching(false)
     }
   }
 
-  const handleSelectMovie = (imdbMovie: IMDbTitle) => {
+  const handleSelectMovie = (omdbMovie: OMDbMovie) => {
+    const year = Number.parseInt(omdbMovie.Year, 10)
+    const hasPoster = omdbMovie.Poster && omdbMovie.Poster !== 'N/A'
     const newMovie: Movie = {
       id: Date.now().toString(),
-      title: imdbMovie.primaryTitle,
-      imageUrl: imdbMovie.primaryImage?.url || `https://via.placeholder.com/200x300/FF6347/fff?text=${encodeURIComponent(imdbMovie.primaryTitle)}`,
-      imdbId: imdbMovie.id,
-      year: imdbMovie.startYear,
-      rating: imdbMovie.rating?.aggregateRating,
-      voteCount: imdbMovie.rating?.voteCount,
-      type: imdbMovie.type
+      title: omdbMovie.Title,
+      imageUrl: hasPoster ? omdbMovie.Poster : `https://via.placeholder.com/200x300/FF6347/fff?text=${encodeURIComponent(omdbMovie.Title)}`,
+      imdbId: omdbMovie.imdbID,
+      year: Number.isNaN(year) ? undefined : year,
+      type: omdbMovie.Type
     }
     setMovies([...movies, newMovie])
     setSearchQuery('')
     setSearchResults([])
+    setSearchError('')
     setShowAddForm(false)
   }
 
@@ -149,7 +160,7 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
           <div className="search-container">
             <input
               type="text"
-              placeholder="Buscar película en IMDb..."
+              placeholder="Buscar película en OMDb..."
               value={searchQuery}
               onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -164,28 +175,27 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
             </button>
           </div>
 
+          {searchError && (
+            <p className="search-error" role="alert">{searchError}</p>
+          )}
+
           {searchResults.length > 0 && (
             <div className="search-results">
               {searchResults.map((result) => (
                 <div 
-                  key={result.id} 
+                  key={result.imdbID}
                   className="search-result-item"
                   onClick={() => handleSelectMovie(result)}
                 >
                   <img 
-                    src={result.primaryImage?.url || 'https://via.placeholder.com/80x120/cccccc/666666?text=Sin+Imagen'} 
-                    alt={result.primaryTitle}
+                    src={result.Poster !== 'N/A' ? result.Poster : 'https://via.placeholder.com/80x120/cccccc/666666?text=Sin+Imagen'}
+                    alt={result.Title}
                     className="result-image"
                   />
                   <div className="result-info">
-                    <h4 className="result-title">{result.primaryTitle}</h4>
+                    <h4 className="result-title">{result.Title}</h4>
                     <div className="result-meta">
-                      <span className="result-year">📅 {result.startYear}</span>
-                      {result.rating && (
-                        <span className="result-rating">
-                          ⭐ {result.rating.aggregateRating.toFixed(1)}
-                        </span>
-                      )}
+                      <span className="result-year">📅 {result.Year}</span>
                     </div>
                   </div>
                 </div>
@@ -199,6 +209,7 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
                 setShowAddForm(false)
                 setSearchQuery('')
                 setSearchResults([])
+                setSearchError('')
               }}
               className="btn-cancel"
             >

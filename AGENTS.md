@@ -1,51 +1,29 @@
-# Películas Danielita
+# Agent Guide
 
-Aplicación web para listado y gestión de películas, construida con Preact + TypeScript (frontend) y Node.js Express (backend).
+## Structure
 
-## Stack
+- This is a single-package pnpm project, not a workspace. The Preact app starts at `src/main.tsx` and the Express API is the independent runtime in `server/server.js`.
+- `src/config.ts` resolves `VITE_API_URL`; use an API origin without `/api`, or `__SAME_ORIGIN__` for the unified image. Without an override during Vite development, the frontend uses the production backend.
+- Movie search goes through `GET /api/movies/search`; the Express server proxies OMDb at `https://www.omdbapi.com/` using the server-only `OMDB_API_KEY` environment variable.
+- The API reads and writes `${DATA_DIR}/data.json`. `DATA_DIR` defaults to `/app/data` for containers, so use a writable temporary path locally:
+  `OMDB_API_KEY="$OMDB_API_KEY" DATA_DIR=/tmp/peliculas-danielita-data pnpm dev:server`.
+- The tracked `server/data.json` is only used when `DATA_DIR` points to `server`; the server's default fallback data is defined separately in `getInitialData()` in `server/server.js`.
 
-- **Frontend**: Preact + TypeScript + Vite (servido con Nginx, puerto 8067)
-- **Backend**: Node.js 20 + Express + pnpm (puerto 3000/8068)
-- **Base de datos**: JSON persistente en volumen (`/app/data`)
+## Commands
 
-## Contenedores Docker
+- Install with the locked toolchain: `pnpm install --frozen-lockfile` (`package.json` pins pnpm 10.12.1).
+- Run the frontend with `pnpm dev`. For local API integration, run it as `VITE_API_URL=http://localhost:3000 pnpm dev` in a second terminal alongside the backend command above.
+- Build and typecheck with `pnpm build`; this runs `tsc -b` before `vite build`. TypeScript is strict and rejects unused locals/parameters.
+- Use `pnpm preview` to serve the built frontend.
+- No test, lint, or formatter scripts are configured. The GitHub workflow in `.github/workflows/deploy.yml` is for Docker deployment, not application tests.
 
-| Servicio  | Imagen Docker Hub                            | Puerto | Dockerfile              |
-|-----------|----------------------------------------------|--------|-------------------------|
-| Frontend  | `arturoalvarez/peliculas-frontend:latest`    | 8067   | `Dockerfile.frontend`   |
-| Backend   | `arturoalvarez/peliculas-backend:latest`     | 8068   | `Dockerfile.backend`    |
+## Docker
 
-## Estructura del proyecto
-
-```
-peliculas-danielita/
-├── src/                  # Código fuente Preact/TypeScript (frontend)
-│   ├── app.tsx
-│   ├── main.tsx
-│   └── components/       # Componentes UI
-├── server/               # Backend Express
-│   ├── server.js
-│   └── data.json
-├── Dockerfile.frontend   # Build multi-stage con Nginx
-├── Dockerfile.backend    # Servidor Node.js Express
-├── nginx-frontend.conf   # Config Nginx para frontend
-├── docker-compose.yml
-├── package.json
-├── vite.config.ts
-├── nginx-server-config.conf
-├── .env.production
-├── README.md
-└── AGENTS.md
-```
-
-## CI/CD
-
-El workflow de GitHub Actions (`deploy.yml`) se encarga de:
-1. Buildear las imágenes Docker (backend y frontend)
-2. Pushearlas a Docker Hub
-3. Los secrets `DOCKER_USERNAME` y `DOCKER_TOKEN` deben estar configurados en GitHub
-
-## Variables de entorno
-
-- `VITE_API_URL`: URL base de la API para el frontend (en tiempo de build)
-- `DATA_DIR`: Directorio donde se almacenan los datos JSON (backend)
+- `Dockerfile` is the canonical single-image deployment: Express serves both the API and the built frontend on port 3000. Its default `VITE_API_URL=__SAME_ORIGIN__` makes browser requests use the public origin.
+- Build the unified image with `./docker-build.sh`; publish multi-architecture images with `./docker-deploy.sh <dockerhub-user>` (requires Docker Buildx and Docker Hub login). Set `PLATFORMS=linux/arm64` for ARM-only publishing.
+- The unified image persists `/app/data`; run it with `-v peliculas-data:/app/data -e OMDB_API_KEY="$OMDB_API_KEY"`. The API reads and writes `/app/data/data.json`.
+- Set `OMDB_API_KEY` on the backend/container at runtime; do not put the key in `VITE_*` variables or committed frontend files.
+- `nginx-server-config.conf` is the reverse-proxy configuration for the unified image: proxy the whole site to `localhost:3000`.
+- `docker-compose.yml` should use the unified image for local deployment. Keep the data volume persistent and pass `OMDB_API_KEY` through the environment.
+- `Dockerfile.backend`, `Dockerfile.frontend`, and the `*-separated.sh` scripts remain legacy two-image workflows.
+- The GitHub deployment workflow requires `DOCKER_USERNAME` and `DOCKER_TOKEN` repository secrets.
