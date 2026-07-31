@@ -5,13 +5,12 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - peliculas-data:/app/data
+      # Keep the existing production data instead of creating a new empty volume.
+      - /home/artulita/databases/peliculas-data:/app/data
     restart: unless-stopped
     environment:
       DATA_DIR: /app/data
       OMDB_API_KEY: ${OMDB_API_KEY:?OMDB_API_KEY must be set}
-      TMDB_API_KEY: ${TMDB_API_KEY:?TMDB_API_KEY must be set}
+      # Optional: enables availability by streaming platform.
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
       WATCH_REGION: ${WATCH_REGION:-CL}
-
-volumes:
-  peliculas-data:
