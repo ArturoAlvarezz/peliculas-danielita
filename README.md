@@ -187,6 +187,7 @@ Endpoints principales:
 - `PUT /api/movies/top`: reemplaza la lista de mejores películas con el array enviado.
 - `PUT /api/movies/watchlist`: reemplaza la lista para ver con el array enviado.
 - `GET /api/movies/search?query=Batman`: busca películas en OMDb desde el backend.
+- `GET /api/movies/details/:imdbId`: obtiene la puntuación IMDb y los votos de un título.
 
 El backend inicializa el archivo con los datos definidos en `getInitialData()` cuando el archivo persistente todavía no existe. El archivo rastreado `server/data.json` solo se utiliza si `DATA_DIR` apunta explícitamente a `server`.
 

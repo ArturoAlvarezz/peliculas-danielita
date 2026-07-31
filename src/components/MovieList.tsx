@@ -40,6 +40,13 @@ interface OMDbSearchResponse {
   error?: string
 }
 
+interface OMDbMovieDetails extends OMDbMovie {
+  imdbRating: string
+  imdbVotes: string
+  Error?: string
+  error?: string
+}
+
 export function MovieList({ title, movies, setMovies }: MovieListProps) {
   const [isEditMode, setIsEditMode] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -99,22 +106,45 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
     }
   }
 
-  const handleSelectMovie = (omdbMovie: OMDbMovie) => {
-    const year = Number.parseInt(omdbMovie.Year, 10)
-    const hasPoster = omdbMovie.Poster && omdbMovie.Poster !== 'N/A'
-    const newMovie: Movie = {
-      id: Date.now().toString(),
-      title: omdbMovie.Title,
-      imageUrl: hasPoster ? omdbMovie.Poster : `https://via.placeholder.com/200x300/FF6347/fff?text=${encodeURIComponent(omdbMovie.Title)}`,
-      imdbId: omdbMovie.imdbID,
-      year: Number.isNaN(year) ? undefined : year,
-      type: omdbMovie.Type
-    }
-    setMovies([...movies, newMovie])
-    setSearchQuery('')
-    setSearchResults([])
+  const handleSelectMovie = async (omdbMovie: OMDbMovie) => {
+    setIsSearching(true)
     setSearchError('')
-    setShowAddForm(false)
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/movies/details/${encodeURIComponent(omdbMovie.imdbID)}`
+      )
+      const details = await response.json() as OMDbMovieDetails
+
+      if (!response.ok) {
+        throw new Error(details.error || details.Error || 'No se pudo obtener la puntuación IMDb')
+      }
+
+      const year = Number.parseInt(details.Year, 10)
+      const rating = Number.parseFloat(details.imdbRating)
+      const voteCount = Number.parseInt(details.imdbVotes.replaceAll(',', ''), 10)
+      const hasPoster = details.Poster && details.Poster !== 'N/A'
+      const newMovie: Movie = {
+        id: Date.now().toString(),
+        title: details.Title,
+        imageUrl: hasPoster ? details.Poster : `https://via.placeholder.com/200x300/FF6347/fff?text=${encodeURIComponent(details.Title)}`,
+        imdbId: details.imdbID,
+        year: Number.isNaN(year) ? undefined : year,
+        rating: Number.isNaN(rating) ? undefined : rating,
+        voteCount: Number.isNaN(voteCount) ? undefined : voteCount,
+        type: details.Type
+      }
+
+      setMovies([...movies, newMovie])
+      setSearchQuery('')
+      setSearchResults([])
+      setSearchError('')
+      setShowAddForm(false)
+    } catch (error) {
+      console.error('Error al obtener el detalle de la película:', error)
+      setSearchError(error instanceof Error ? error.message : 'No se pudo obtener la puntuación IMDb')
+    } finally {
+      setIsSearching(false)
+    }
   }
 
   const handleDeleteMovie = (id: string) => {

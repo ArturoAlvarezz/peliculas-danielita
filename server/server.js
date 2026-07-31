@@ -125,6 +125,71 @@ async function writeData(data) {
   }
 }
 
+function parseOmdbNumber(value) {
+  if (typeof value !== 'string' || value === 'N/A') return undefined;
+
+  const parsed = Number.parseFloat(value.replaceAll(',', ''));
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+async function fetchOmdbDetails(imdbId, apiKey) {
+  const params = new URLSearchParams({
+    apikey: apiKey,
+    i: imdbId,
+    plot: 'short',
+    r: 'json'
+  });
+  const response = await fetch(`${OMDB_API_URL}?${params}`);
+  const data = await response.json();
+
+  if (!response.ok || data.Response === 'False') return null;
+  return data;
+}
+
+async function enrichMovieRatings(data) {
+  const apiKey = process.env.OMDB_API_KEY;
+  const movies = [...data.topMovies, ...data.watchList];
+  const moviesToEnrich = movies.filter((movie) => (
+    movie.imdbId && (typeof movie.rating !== 'number' || typeof movie.voteCount !== 'number')
+  ));
+
+  if (!apiKey || moviesToEnrich.length === 0) return data;
+
+  const enrichedMovies = await Promise.all(moviesToEnrich.map(async (movie) => {
+    try {
+      const details = await fetchOmdbDetails(movie.imdbId, apiKey);
+      if (!details) return movie;
+
+      const rating = parseOmdbNumber(details.imdbRating);
+      const voteCount = parseOmdbNumber(details.imdbVotes);
+      return {
+        ...movie,
+        rating: rating ?? movie.rating,
+        voteCount: voteCount ?? movie.voteCount
+      };
+    } catch (error) {
+      console.error(`Error enriching movie ${movie.imdbId}:`, error);
+      return movie;
+    }
+  }));
+
+  const enrichedById = new Map(enrichedMovies.map((movie) => [movie.id, movie]));
+  const updateList = (list) => list.map((movie) => enrichedById.get(movie.id) || movie);
+  const enrichedData = {
+    ...data,
+    topMovies: updateList(data.topMovies),
+    watchList: updateList(data.watchList)
+  };
+
+  const changed = enrichedMovies.some((movie, index) => {
+    const original = moviesToEnrich[index];
+    return movie.rating !== original.rating || movie.voteCount !== original.voteCount;
+  });
+
+  if (changed) await writeData(enrichedData);
+  return enrichedData;
+}
+
 // GET - Buscar películas en OMDb sin exponer la clave al navegador
 app.get('/api/movies/search', async (req, res) => {
   const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
@@ -168,10 +233,36 @@ app.get('/api/movies/search', async (req, res) => {
   }
 });
 
+// GET - Obtener el detalle de una película de OMDb
+app.get('/api/movies/details/:imdbId', async (req, res) => {
+  const { imdbId } = req.params;
+  const apiKey = process.env.OMDB_API_KEY;
+
+  if (!/^tt\d+$/.test(imdbId)) {
+    return res.status(400).json({ error: 'IMDb ID inválido' });
+  }
+
+  if (!apiKey) {
+    return res.status(503).json({ error: 'OMDB_API_KEY no está configurada en el servidor' });
+  }
+
+  try {
+    const details = await fetchOmdbDetails(imdbId, apiKey);
+    if (!details) {
+      return res.status(502).json({ error: 'No se pudo obtener el detalle desde OMDb' });
+    }
+
+    return res.json(details);
+  } catch (error) {
+    console.error('Error getting OMDb movie details:', error);
+    return res.status(502).json({ error: 'No se pudo consultar OMDb' });
+  }
+});
+
 // GET - Obtener todas las películas
 app.get('/api/movies', async (req, res) => {
   const data = await readData();
-  res.json(data);
+  res.json(await enrichMovieRatings(data));
 });
 
 // PUT - Actualizar top movies
