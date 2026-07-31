@@ -26,18 +26,35 @@ body {
   overflow-x: hidden;
 }
 
+img {
+  display: block;
+}
+
 button {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  font: inherit;
 }
 
-/* Disable default button focus styles on mobile */
-button:focus {
-  outline: none;
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #1565c0;
+  outline-offset: 3px;
 }
 
-/* Prevent text selection on drag */
-.movie-card * {
+/* Prevent text selection only while a card is draggable */
+.movie-card.edit-mode * {
   user-select: none;
   -webkit-user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

@@ -27,23 +27,25 @@ export function MovieCard({ movie, index, onDelete, isEditMode }: MovieCardProps
   }
 
   return (
-    <div
+    <article
       ref={setNodeRef}
       style={style}
       className={`movie-card ${isEditMode ? 'edit-mode' : ''}`}
       {...(isEditMode ? (attributes as any) : {})}
       {...(isEditMode ? (listeners as any) : {})}
     >
-      <div className="movie-position">{index + 1}</div>
-      <img src={movie.imageUrl} alt={movie.title} className="movie-image" />
+      <div className="movie-position" aria-label={`Posición ${index + 1}`}>{index + 1}</div>
+      <img src={movie.imageUrl} alt={`Póster de ${movie.title}`} className="movie-image" loading="lazy" />
       <div className="movie-details">
         <h3 className="movie-title">{movie.title}</h3>
         <div className="movie-metadata">
-          {movie.year && (
+          {movie.year !== undefined && (
             <span className="movie-year">📅 {movie.year}</span>
           )}
-          {movie.rating && (
-            <span className="movie-rating">⭐ {movie.rating.toFixed(1)}</span>
+          {movie.rating !== undefined && (
+            <span className="movie-rating" aria-label={`Puntuación IMDb ${movie.rating.toFixed(1)} de 10`}>
+              ⭐ IMDb {movie.rating.toFixed(1)}
+            </span>
           )}
           {movie.type && movie.type !== 'movie' && (
             <span className="movie-type">
@@ -56,7 +58,11 @@ export function MovieCard({ movie, index, onDelete, isEditMode }: MovieCardProps
       </div>
       {isEditMode && (
         <button
+          type="button"
           className="btn-delete"
+          aria-label={`Eliminar ${movie.title}`}
+          title={`Eliminar ${movie.title}`}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
             onDelete(movie.id)
@@ -65,6 +71,6 @@ export function MovieCard({ movie, index, onDelete, isEditMode }: MovieCardProps
           🗑️
         </button>
       )}
-    </div>
+    </article>
   )
 }

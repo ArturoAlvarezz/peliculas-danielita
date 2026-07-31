@@ -54,6 +54,7 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
   const [searchResults, setSearchResults] = useState<OMDbMovie[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const titleId = `movie-list-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -152,11 +153,13 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
   }
 
   return (
-    <div className="movie-list-section">
+    <section className="movie-list-section" aria-labelledby={titleId}>
       <div className="section-header">
-        <h1 className="section-title">{title}</h1>
+        <h2 id={titleId} className="section-title">{title}</h2>
         <button 
+          type="button"
           className={`btn-edit ${isEditMode ? 'active' : ''}`}
+          aria-pressed={isEditMode}
           onClick={() => setIsEditMode(!isEditMode)}
         >
           {isEditMode ? '✓ Listo' : '✏️ Editar'}
@@ -186,18 +189,27 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
       </DndContext>
 
       {isEditMode && (showAddForm ? (
-        <div className="add-movie-form">
+        <form
+          className="add-movie-form"
+          aria-label={`Agregar una película a ${title}`}
+          onSubmit={(event) => {
+            event.preventDefault()
+            void handleSearch()
+          }}
+        >
           <div className="search-container">
             <input
+              id={`${titleId}-search`}
               type="text"
               placeholder="Buscar película en OMDb..."
               value={searchQuery}
+              aria-label="Buscar película"
+              aria-describedby={searchError ? `${titleId}-search-error` : undefined}
               onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               className="movie-input"
             />
             <button 
-              onClick={handleSearch} 
+              type="submit"
               className="btn-search"
               disabled={isSearching}
             >
@@ -206,15 +218,18 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
           </div>
 
           {searchError && (
-            <p className="search-error" role="alert">{searchError}</p>
+            <p id={`${titleId}-search-error`} className="search-error" role="alert">{searchError}</p>
           )}
 
           {searchResults.length > 0 && (
-            <div className="search-results">
+            <div className="search-results" aria-label="Resultados de búsqueda" aria-live="polite">
               {searchResults.map((result) => (
-                <div 
+                <button
+                  type="button"
                   key={result.imdbID}
                   className="search-result-item"
+                  aria-label={`Agregar ${result.Title}, ${result.Year}`}
+                  disabled={isSearching}
                   onClick={() => handleSelectMovie(result)}
                 >
                   <img 
@@ -228,13 +243,14 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
                       <span className="result-year">📅 {result.Year}</span>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
 
           <div className="form-buttons">
             <button
+              type="button"
               onClick={() => {
                 setShowAddForm(false)
                 setSearchQuery('')
@@ -246,10 +262,10 @@ export function MovieList({ title, movies, setMovies }: MovieListProps) {
               Cancelar
             </button>
           </div>
-        </div>
+        </form>
       ) : (
         <AddMovieButton onClick={() => setShowAddForm(true)} />
       ))}
-    </div>
+    </section>
   )
 }

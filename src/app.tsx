@@ -18,6 +18,7 @@ export function App() {
   const [topMovies, setTopMovies] = useState<Movie[]>([])
   const [watchList, setWatchList] = useState<Movie[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   // Cargar datos iniciales desde el servidor
   useEffect(() => {
@@ -25,14 +26,19 @@ export function App() {
   }, [])
 
   const fetchMovies = async () => {
+    setLoading(true)
+    setLoadError('')
     try {
       const response = await fetch(API_URL)
+      if (!response.ok) throw new Error('No se pudieron cargar las películas')
+
       const data = await response.json()
       setTopMovies(data.topMovies || [])
       setWatchList(data.watchList || [])
-      setLoading(false)
     } catch (error) {
       console.error('Error al cargar películas:', error)
+      setLoadError(error instanceof Error ? error.message : 'No se pudieron cargar las películas')
+    } finally {
       setLoading(false)
     }
   }
@@ -67,14 +73,32 @@ export function App() {
 
   if (loading) {
     return (
-      <div className="app-container">
-        <div className="loading">Cargando películas...</div>
-      </div>
+      <main className="app-container" aria-busy="true">
+        <p className="loading" role="status" aria-live="polite">Cargando películas...</p>
+      </main>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <main className="app-container">
+        <div className="load-error" role="alert">
+          <p>{loadError}</p>
+          <button type="button" className="btn-retry" onClick={() => void fetchMovies()}>
+            Reintentar
+          </button>
+        </div>
+      </main>
     )
   }
 
   return (
-    <div className="app-container">
+    <main className="app-container" aria-label="Listas de películas">
+      <header className="app-header">
+        <p className="app-kicker">Nuestra colección</p>
+        <h1 className="app-title">Películas de Arturin y Danielita</h1>
+        <p className="app-subtitle">Ordena, descubre y guarda las próximas películas para ver.</p>
+      </header>
       <MovieList
         title="Top películas de Arturin y Danielita"
         movies={topMovies}
@@ -85,6 +109,6 @@ export function App() {
         movies={watchList}
         setMovies={updateWatchList}
       />
-    </div>
+    </main>
   )
 }
