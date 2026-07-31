@@ -20,6 +20,7 @@
 ## Docker
 
 - `Dockerfile` is the canonical single-image deployment: Express serves both the API and the built frontend on port 3000. Its default `VITE_API_URL=__SAME_ORIGIN__` makes browser requests use the public origin.
+- For local testing, build and run the image with `./docker-build.sh`; do not wait for CI or publish commits/images unless the user explicitly requests a push.
 - Build the unified image with `./docker-build.sh`; publish multi-architecture images with `./docker-deploy.sh <dockerhub-user>` (requires Docker Buildx and Docker Hub login). Set `PLATFORMS=linux/arm64` for ARM-only publishing.
 - The unified image persists `/app/data`; run it with `-v peliculas-data:/app/data -e OMDB_API_KEY="$OMDB_API_KEY"`. The API reads and writes `/app/data/data.json`.
 - Set `OMDB_API_KEY` on the backend/container at runtime; do not put the key in `VITE_*` variables or committed frontend files.
