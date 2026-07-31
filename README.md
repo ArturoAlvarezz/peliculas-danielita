@@ -145,6 +145,15 @@ El script publica `tu-usuario-dockerhub/peliculas-danielita:latest`. Se puede ca
 VERSION=2026-01 IMAGE_NAME=tu-usuario/peliculas-danielita ./docker-deploy.sh tu-usuario-dockerhub
 ```
 
+## CI/CD
+
+El workflow `.github/workflows/deploy.yml` publica automáticamente la imagen unificada cuando se hace push a `main` y también se puede ejecutar manualmente desde GitHub Actions. Configurar estos secrets en el repositorio de GitHub:
+
+- `DOCKER_USERNAME`: usuario de Docker Hub.
+- `DOCKER_TOKEN`: access token de Docker Hub, no la contraseña.
+
+El workflow publica `${DOCKER_USERNAME}/peliculas-danielita:latest` para `linux/amd64` y `linux/arm64`. La clave `OMDB_API_KEY` no se necesita durante el build; debe pasarse al ejecutar el contenedor.
+
 ## Nginx en Producción
 
 El contenedor debe quedar accesible localmente en `localhost:3000`. El archivo `nginx-server-config.conf` ya está preparado para enviar tanto el frontend como `/api` al mismo contenedor.

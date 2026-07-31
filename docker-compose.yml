@@ -1,28 +1,15 @@
-version: '3.8'
-
 services:
-  peliculas-frontend:
-    image: arturoalvarez/peliculas-frontend:latest
-    container_name: peliculas-frontend
+  peliculas:
+    image: arturoalvarez/peliculas-danielita:latest
+    container_name: peliculas-danielita
     ports:
-      - "8067:80"
-    networks:
-      - peliculas-network
-    restart: unless-stopped
-
-  peliculas-backend:
-    image: arturoalvarez/peliculas-backend:latest
-    container_name: peliculas-backend
-    ports:
-      - "8068:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
-      - /home/artulita/peliculas-data:/app/data
-    networks:
-      - peliculas-network
+      - peliculas-data:/app/data
     restart: unless-stopped
     environment:
-      - DATA_DIR=/app/data
+      DATA_DIR: /app/data
+      OMDB_API_KEY: ${OMDB_API_KEY:?OMDB_API_KEY must be set}
 
-networks:
-  peliculas-network:
-    driver: bridge
+volumes:
+  peliculas-data:
