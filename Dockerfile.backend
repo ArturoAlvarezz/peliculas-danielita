@@ -2,7 +2,7 @@
 FROM node:20-alpine
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install --global pnpm@10.12.1
 
 WORKDIR /app
 

@@ -60,7 +60,7 @@ En la segunda, apuntar Vite al backend local:
 VITE_API_URL=http://localhost:3000 pnpm dev
 ```
 
-Abrir `http://localhost:5173`. Si no se define `VITE_API_URL`, el frontend usa el backend configurado por defecto, no el backend local.
+Abrir `http://localhost:5173`. Si no se define `VITE_API_URL`, el frontend usa el mismo origen y el proxy de Vite envía `/api` al backend local en `localhost:3000`.
 
 Para comprobar la API sin abrir el frontend:
 
