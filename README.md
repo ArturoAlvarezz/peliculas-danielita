@@ -171,8 +171,8 @@ Pasos manuales:
 2. Copiar la configuración a la instalación de Nginx:
 
    ```bash
-   sudo cp nginx-server-config.conf /etc/nginx/sites-available/peliculas.arturoalvarez.site
-   sudo ln -s /etc/nginx/sites-available/peliculas.arturoalvarez.site /etc/nginx/sites-enabled/peliculas.arturoalvarez.site
+   sudo cp nginx-server-config.conf /etc/nginx/sites-available/peliculas.arturoalvarez.dev
+   sudo ln -s /etc/nginx/sites-available/peliculas.arturoalvarez.dev /etc/nginx/sites-enabled/peliculas.arturoalvarez.dev
    ```
 
 3. Verificar y recargar Nginx:

@@ -77,7 +77,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
         -f Dockerfile.frontend \
-        --build-arg VITE_API_URL=https://backend-peliculas.arturoalvarez.site \
+        --build-arg VITE_API_URL=https://peliculas.arturoalvarez.dev \
         -t ${DOCKERHUB_USER}/peliculas-frontend:${VERSION} \
         --push \
         .

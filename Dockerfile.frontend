@@ -16,7 +16,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Build argument for API URL
-ARG VITE_API_URL=https://backend-peliculas.arturoalvarez.site
+ARG VITE_API_URL=__SAME_ORIGIN__
 ENV VITE_API_URL=$VITE_API_URL
 
 # Build the application with environment variables
