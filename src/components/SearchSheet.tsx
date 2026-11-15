@@ -133,7 +133,7 @@ export function SearchSheet({ listLabel, existing, onAdd, onClose }: SearchSheet
               return (
                 <li key={key}>
                   <button type="button" className="result" disabled={added || adding !== null} onClick={() => void handlePick(r)}>
-                    <Poster src={r.posterUrl} title={r.title} className="result-poster" />
+                    <Poster src={r.posterUrl} title={r.title} className="result-poster" width={150} />
                     <span className="result-body">
                       <span className="result-title">{r.title}</span>
                       <span className="result-meta">
