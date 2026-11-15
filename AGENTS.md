@@ -4,7 +4,7 @@
 
 - This is a single-package pnpm project, not a workspace. The Preact app starts at `src/main.tsx` and the Express API is the independent runtime in `server/server.js`.
 - `src/config.ts` resolves `VITE_API_URL`; use an API origin without `/api`, or `__SAME_ORIGIN__` for the unified image. Without an override during Vite development, the frontend uses the production backend.
-- Movie search goes through `GET /api/movies/search`; the Express server proxies OMDb at `https://www.omdbapi.com/` using the server-only `OMDB_API_KEY` environment variable.
+- Movie/series search goes through `GET /api/movies/search` (TMDB `/search/multi` in `TMDB_LANGUAGE`, default `es-CL`; falls back to OMDb if TMDB fails). Picking a result calls `GET /api/movies/resolve?mediaType=&tmdbId=|imdbId=`, which merges TMDB details with the IMDb rating from OMDb. External calls use `fetchWithRetry` (timeout + retries).
 - Platform availability goes through `GET /api/movies/providers/:imdbId`; the Express server proxies TMDB using `TMDB_API_KEY` and `WATCH_REGION`.
 - The API reads and writes `${DATA_DIR}/data.json`. `DATA_DIR` defaults to `/app/data` for containers, so use a writable temporary path locally:
   `OMDB_API_KEY="$OMDB_API_KEY" TMDB_API_KEY="$TMDB_API_KEY" WATCH_REGION=CL DATA_DIR=/tmp/peliculas-danielita-data pnpm dev:server`.

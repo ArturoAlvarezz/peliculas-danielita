@@ -3,169 +3,129 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Movie, StreamingProvider } from '../app'
 import { API_BASE_URL } from '../config'
-import './MovieCard.css'
+import { Poster } from './Poster'
 
 interface MovieCardProps {
   movie: Movie
   index: number
-  onDelete: (id: string) => void
+  ranked: boolean
   isEditMode: boolean
+  onDelete: () => void
+  onMarkWatched?: () => void
 }
 
-export function MovieCard({ movie, index, onDelete, isEditMode }: MovieCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    setActivatorNodeRef,
-  } = useSortable({ id: movie.id })
-  const [providers, setProviders] = useState<StreamingProvider[]>([])
-  const [providersLink, setProvidersLink] = useState<string | null>(null)
-  const [isLoadingProviders, setIsLoadingProviders] = useState(false)
+const providerCache = new Map<string, { providers: StreamingProvider[]; link: string | null }>()
+
+function typeLabel(movie: Movie) {
+  if (movie.mediaType === 'tv' || movie.type === 'tvSeries' || movie.type === 'series') return 'Serie'
+  if (movie.type === 'tvMiniSeries') return 'Miniserie'
+  if (movie.type === 'tvMovie') return 'Película TV'
+  return null
+}
+
+export function MovieCard({ movie, index, ranked, isEditMode, onDelete, onMarkWatched }: MovieCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, setActivatorNodeRef } =
+    useSortable({ id: movie.id, disabled: !isEditMode })
+  const cached = movie.imdbId ? providerCache.get(movie.imdbId) : undefined
+  const [providers, setProviders] = useState<StreamingProvider[]>(cached?.providers || [])
+  const [providersLink, setProvidersLink] = useState<string | null>(cached?.link || null)
 
   useEffect(() => {
-    if (!movie.imdbId) return
-
+    const imdbId = movie.imdbId
+    if (!imdbId || providerCache.has(imdbId)) return
     let cancelled = false
-    const loadProviders = async () => {
-      setIsLoadingProviders(true)
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/movies/providers/${movie.imdbId}`)
-        const data = await response.json() as {
-          providers?: StreamingProvider[]
-          link?: string | null
-        }
 
-        if (!cancelled && response.ok) {
-          setProviders(data.providers || [])
-          setProvidersLink(data.link || null)
+    const load = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/movies/providers/${imdbId}`)
+        if (!response.ok) return
+        const data = await response.json() as { providers?: StreamingProvider[]; link?: string | null }
+        const value = { providers: data.providers || [], link: data.link || null }
+        providerCache.set(imdbId, value)
+        if (!cancelled) {
+          setProviders(value.providers)
+          setProvidersLink(value.link)
         }
       } catch (error) {
         console.error('Error al cargar plataformas:', error)
-      } finally {
-        if (!cancelled) setIsLoadingProviders(false)
       }
     }
 
-    void loadProviders()
+    void load()
     return () => {
       cancelled = true
     }
   }, [movie.imdbId])
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
+  const streaming = providers.filter((p) => p.types.some((t) => t !== 'Alquiler' && t !== 'Compra'))
+  const shown = (streaming.length > 0 ? streaming : providers).slice(0, 5)
+  const onlyRentBuy = streaming.length === 0 && providers.length > 0
+  const label = typeLabel(movie)
+  const showOriginal = movie.originalTitle && movie.originalTitle !== movie.title
 
   return (
-    <article
+    <li
       ref={setNodeRef}
-      style={style}
-      className={`movie-card ${isEditMode ? 'edit-mode' : ''}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`movie-card ${isDragging ? 'is-dragging' : ''} ${isEditMode ? 'is-editing' : ''}`}
     >
-      <div className="movie-position" aria-hidden="true">{index + 1}</div>
-      <img src={movie.imageUrl} alt={`Póster de ${movie.title}`} className="movie-image" loading="lazy" />
-      <div className="movie-details">
-        <h3 className="movie-title">{movie.title}</h3>
-        <div className="movie-metadata">
-          {movie.year !== undefined && (
-            <span className="movie-year">📅 {movie.year}</span>
-          )}
+      {ranked && <span className={`rank ${index < 3 ? 'rank-podium' : ''}`} aria-label={`Puesto ${index + 1}`}>{index + 1}</span>}
+      <Poster src={movie.imageUrl} title={movie.title} className="card-poster" />
+
+      <div className="card-body">
+        <h3 className="card-title">{movie.title}</h3>
+        {showOriginal && <p className="card-original">{movie.originalTitle}</p>}
+        <div className="card-meta">
+          {movie.year !== undefined && <span>{movie.year}</span>}
+          {label && <span className="pill">{label}</span>}
           {movie.rating !== undefined && (
-            <span className="movie-rating" aria-label={`Puntuación IMDb ${movie.rating.toFixed(1)} de 10`}>
-              ⭐ IMDb {movie.rating.toFixed(1)}
-            </span>
-          )}
-          {movie.type && movie.type !== 'movie' && (
-            <span className="movie-type">
-              {movie.type === 'tvSeries' ? '📺 Serie' : 
-               movie.type === 'tvMiniSeries' ? '📺 Miniserie' :
-               movie.type === 'tvMovie' ? '📺 TV' : '🎬'}
+            <span className="score" aria-label={`Puntuación ${movie.ratingSource || 'IMDb'} ${movie.rating.toFixed(1)} de 10`}>
+              ★ {movie.rating.toFixed(1)}
+              <small>{movie.ratingSource || 'IMDb'}</small>
             </span>
           )}
         </div>
-        {(isLoadingProviders || providers.length > 0) && (
-          <div className="movie-providers" aria-label="Disponibilidad en plataformas">
-            {isLoadingProviders && (
-              <span className="providers-loading" role="status">Buscando plataformas...</span>
-            )}
-            {providers.length > 0 && (
-              <>
-                <div className="provider-list">
-                  {providers.map((provider) => (
-                    <span
-                      key={provider.id}
-                      className="provider-chip"
-                      title={`${provider.name}${provider.types.length > 0 ? ` (${provider.types.join(', ')})` : ''}`}
-                      role="img"
-                      aria-label={`${provider.name}${provider.types.length > 0 ? `: ${provider.types.join(', ')}` : ''}`}
-                    >
-                      {provider.logoUrl && (
-                        <img src={provider.logoUrl} alt="" loading="lazy" />
-                      )}
-                      {!provider.logoUrl && (
-                        <span className="provider-fallback" aria-hidden="true">•</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                {providersLink && (
-                  <a
-                    className="providers-link"
-                    href={providersLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`Ver disponibilidad de ${movie.title}`}
-                    title="Ver disponibilidad"
-                  >
-                    <svg
-                      className="providers-link-icon"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <path d="M14 3h7v7M21 3l-9 9" />
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    </svg>
-                  </a>
-                )}
-              </>
-            )}
-          </div>
+
+        {shown.length > 0 && (
+          <a
+            className="providers"
+            href={providersLink || undefined}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Dónde ver ${movie.title}: ${shown.map((p) => p.name).join(', ')}`}
+          >
+            {shown.map((provider) => (
+              provider.logoUrl
+                ? <img key={provider.id} src={provider.logoUrl} alt="" title={provider.name} loading="lazy" />
+                : <span key={provider.id} className="provider-text">{provider.name}</span>
+            ))}
+            {onlyRentBuy && <span className="provider-note">arriendo/compra</span>}
+          </a>
         )}
       </div>
+
       {isEditMode && (
-        <div className="movie-actions">
+        <div className="card-actions">
+          {onMarkWatched && (
+            <button type="button" className="icon-btn" onClick={onMarkWatched} aria-label={`Marcar ${movie.title} como vista y pasarla al top`} title="Vista → al top">
+              ✓
+            </button>
+          )}
+          <button type="button" className="icon-btn danger" onClick={onDelete} aria-label={`Quitar ${movie.title}`} title="Quitar">
+            ✕
+          </button>
           <button
             ref={setActivatorNodeRef}
             type="button"
-            className="drag-handle"
+            className="icon-btn handle"
             {...(attributes as any)}
             {...(listeners as any)}
             aria-label={`Arrastrar ${movie.title} para reordenar`}
           >
-            <span aria-hidden="true">⠿</span>
-          </button>
-          <button
-            type="button"
-            className="btn-delete"
-            aria-label={`Eliminar ${movie.title}`}
-            title={`Eliminar ${movie.title}`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(movie.id)
-            }}
-          >
-            🗑️
+            ⠿
           </button>
         </div>
       )}
-    </article>
+    </li>
   )
 }
