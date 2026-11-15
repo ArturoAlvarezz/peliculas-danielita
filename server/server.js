@@ -16,6 +16,7 @@ const OMDB_API_URL = 'https://www.omdbapi.com/';
 const TMDB_API_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_URL = 'https://image.tmdb.org/t/p/w92';
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_LANGUAGE = process.env.TMDB_LANGUAGE || 'es-CL';
 const WATCH_REGION = (process.env.WATCH_REGION || 'CL').toUpperCase();
 const providerCache = new Map();
 const PROVIDER_CACHE_TTL = 6 * 60 * 60 * 1000;
@@ -145,11 +146,29 @@ async function fetchOmdbDetails(imdbId, apiKey) {
     plot: 'short',
     r: 'json'
   });
-  const response = await fetch(`${OMDB_API_URL}?${params}`);
+  const response = await fetchWithRetry(`${OMDB_API_URL}?${params}`);
   const data = await response.json();
 
   if (!response.ok || data.Response === 'False') return null;
   return data;
+}
+
+async function fetchWithRetry(url, { retries = 2, timeoutMs = 8000 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      if (response.status >= 500 && attempt < retries) {
+        lastError = new Error(`HTTP ${response.status}`);
+      } else {
+        return response;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
+  throw lastError;
 }
 
 async function fetchTmdb(pathname, params = {}) {
@@ -157,10 +176,65 @@ async function fetchTmdb(pathname, params = {}) {
     api_key: TMDB_API_KEY,
     ...params
   });
-  const response = await fetch(`${TMDB_API_URL}${pathname}?${query}`);
+  const response = await fetchWithRetry(`${TMDB_API_URL}${pathname}?${query}`);
 
   if (!response.ok) throw new Error(`TMDB request failed with ${response.status}`);
   return response.json();
+}
+
+function tmdbPoster(pathValue, size = 'w500') {
+  return pathValue ? `https://image.tmdb.org/t/p/${size}${pathValue}` : null;
+}
+
+function parseYear(value) {
+  const year = Number.parseInt(String(value || '').slice(0, 4), 10);
+  return Number.isNaN(year) ? undefined : year;
+}
+
+async function searchTmdb(query) {
+  const data = await fetchTmdb('/search/multi', {
+    query,
+    language: TMDB_LANGUAGE,
+    include_adult: 'false',
+    page: '1'
+  });
+
+  return (data.results || [])
+    .filter((item) => item.media_type === 'movie' || item.media_type === 'tv')
+        .slice(0, 12)
+    .map((item) => ({
+      tmdbId: item.id,
+      mediaType: item.media_type,
+      title: item.title || item.name,
+      originalTitle: item.original_title || item.original_name,
+      year: parseYear(item.release_date || item.first_air_date),
+      posterUrl: tmdbPoster(item.poster_path, 'w185'),
+      overview: item.overview || '',
+      tmdbRating: item.vote_average || undefined
+    }));
+}
+
+async function searchOmdb(query, apiKey) {
+  const params = new URLSearchParams({ apikey: apiKey, s: query, page: '1', r: 'json' });
+  const response = await fetchWithRetry(`${OMDB_API_URL}?${params}`);
+  const data = await response.json();
+
+  if (!response.ok) throw new Error('No se pudo consultar OMDb');
+  if (data.Response === 'False') {
+    if (data.Error === 'Movie not found!') return [];
+    throw new Error(data.Error || 'No se pudo buscar en OMDb');
+  }
+
+  return (data.Search || [])
+    .filter((item) => item.Type === 'movie' || item.Type === 'series')
+    .map((item) => ({
+      imdbId: item.imdbID,
+      mediaType: item.Type === 'series' ? 'tv' : 'movie',
+      title: item.Title,
+      year: parseYear(item.Year),
+      posterUrl: item.Poster && item.Poster !== 'N/A' ? item.Poster : null,
+      overview: ''
+    }));
 }
 
 async function enrichMovieRatings(data) {
@@ -207,7 +281,7 @@ async function enrichMovieRatings(data) {
   return enrichedData;
 }
 
-// GET - Buscar películas en OMDb sin exponer la clave al navegador
+// GET - Buscar películas y series (TMDB en español; OMDb como respaldo)
 app.get('/api/movies/search', async (req, res) => {
   const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
   const apiKey = process.env.OMDB_API_KEY;
@@ -216,37 +290,78 @@ app.get('/api/movies/search', async (req, res) => {
     return res.status(400).json({ error: 'Se requiere un texto de búsqueda' });
   }
 
+  if (TMDB_API_KEY) {
+    try {
+      return res.json({ source: 'tmdb', results: await searchTmdb(query) });
+    } catch (error) {
+      console.error('Error searching TMDB, falling back to OMDb:', error.message);
+    }
+  }
+
   if (!apiKey) {
-    return res.status(503).json({ error: 'OMDB_API_KEY no está configurada en el servidor' });
+    return res.status(503).json({ error: 'No hay ninguna API de búsqueda configurada' });
   }
 
   try {
-    const params = new URLSearchParams({
-      apikey: apiKey,
-      s: query,
-      type: 'movie',
-      page: '1',
-      r: 'json'
-    });
-    const response = await fetch(`${OMDB_API_URL}?${params}`);
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(502).json({ error: 'No se pudo consultar OMDb' });
-    }
-
-    if (data.Response === 'False') {
-      if (data.Error === 'Movie not found!') {
-        return res.json({ Search: [] });
-      }
-
-      return res.status(502).json({ error: data.Error || 'No se pudo buscar en OMDb' });
-    }
-
-    return res.json({ Search: data.Search || [] });
+    return res.json({ source: 'omdb', results: await searchOmdb(query, apiKey) });
   } catch (error) {
     console.error('Error searching OMDb:', error);
-    return res.status(502).json({ error: 'No se pudo consultar OMDb' });
+    return res.status(502).json({ error: 'No se pudo buscar películas. Intenta de nuevo.' });
+  }
+});
+
+// GET - Resolver un resultado de búsqueda a una película lista para guardar
+app.get('/api/movies/resolve', async (req, res) => {
+  const mediaType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
+  const tmdbId = Number.parseInt(String(req.query.tmdbId || ''), 10);
+  let imdbId = typeof req.query.imdbId === 'string' && /^tt\d+$/.test(req.query.imdbId) ? req.query.imdbId : undefined;
+  const apiKey = process.env.OMDB_API_KEY;
+  const movie = { mediaType, type: mediaType === 'tv' ? 'tvSeries' : 'movie' };
+
+  try {
+    if (!Number.isNaN(tmdbId) && TMDB_API_KEY) {
+      const details = await fetchTmdb(`/${mediaType}/${tmdbId}`, {
+        language: TMDB_LANGUAGE,
+        append_to_response: 'external_ids'
+      });
+      imdbId = imdbId || details.imdb_id || details.external_ids?.imdb_id || undefined;
+      Object.assign(movie, {
+        tmdbId,
+        title: details.title || details.name,
+        originalTitle: details.original_title || details.original_name,
+        year: parseYear(details.release_date || details.first_air_date),
+        imageUrl: tmdbPoster(details.poster_path),
+        rating: details.vote_average ? Math.round(details.vote_average * 10) / 10 : undefined,
+        voteCount: details.vote_count || undefined,
+        ratingSource: 'TMDB'
+      });
+    }
+
+    if (imdbId && apiKey) {
+      const omdb = await fetchOmdbDetails(imdbId, apiKey).catch(() => null);
+      if (omdb) {
+        const rating = parseOmdbNumber(omdb.imdbRating);
+        const voteCount = parseOmdbNumber(omdb.imdbVotes);
+        movie.title = movie.title || omdb.Title;
+        movie.year = movie.year ?? parseYear(omdb.Year);
+        if (!movie.imageUrl && omdb.Poster && omdb.Poster !== 'N/A') movie.imageUrl = omdb.Poster;
+        if (rating !== undefined) {
+          movie.rating = rating;
+          movie.voteCount = voteCount;
+          movie.ratingSource = 'IMDb';
+        }
+      }
+    }
+
+    if (!movie.title) {
+      return res.status(404).json({ error: 'No se encontró la película' });
+    }
+
+    movie.imdbId = imdbId;
+    return res.json(movie);
+  } catch (error) {
+    console.error('Error resolving movie:', error);
+    return res.status(502).json({ error: 'No se pudo obtener el detalle. Intenta de nuevo.' });
   }
 });
 
@@ -301,14 +416,15 @@ app.get('/api/movies/providers/:imdbId', async (req, res) => {
   try {
     const matches = await fetchTmdb(`/find/${imdbId}`, { external_source: 'imdb_id' });
     const movie = matches.movie_results?.[0];
+    const show = matches.tv_results?.[0];
 
-    if (!movie) {
+    if (!movie && !show) {
       const emptyData = { region: WATCH_REGION, providers: [], link: null };
       providerCache.set(cacheKey, { timestamp: Date.now(), data: emptyData });
       return res.json(emptyData);
     }
 
-    const watchProviders = await fetchTmdb(`/movie/${movie.id}/watch/providers`);
+    const watchProviders = await fetchTmdb(movie ? `/movie/${movie.id}/watch/providers` : `/tv/${show.id}/watch/providers`);
     const regionData = watchProviders.results?.[WATCH_REGION];
     const providerGroups = [
       ['Streaming', regionData?.flatrate],
@@ -347,6 +463,10 @@ app.get('/api/movies/providers/:imdbId', async (req, res) => {
       providers: []
     });
   }
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, omdb: Boolean(process.env.OMDB_API_KEY), tmdb: Boolean(TMDB_API_KEY), region: WATCH_REGION });
 });
 
 // GET - Obtener todas las películas
