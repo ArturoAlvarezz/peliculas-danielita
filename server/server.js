@@ -42,7 +42,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(express.static('dist'));
+// Hashed Vite assets never change: let browsers and Cloudflare cache them for a year.
+app.use(express.static('dist', {
+  setHeaders(res, filePath) {
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  }
+}));
 
 // Datos iniciales
 const getInitialData = () => ({
@@ -409,6 +420,8 @@ app.get('/api/movies/providers/:imdbId', async (req, res) => {
 
   const cacheKey = `${WATCH_REGION}:${imdbId}`;
   const cached = providerCache.get(cacheKey);
+  // Platforms change rarely: let the browser reuse the answer for 6 h.
+  res.set('Cache-Control', 'public, max-age=21600');
   if (cached && Date.now() - cached.timestamp < PROVIDER_CACHE_TTL) {
     return res.json(cached.data);
   }
@@ -457,6 +470,7 @@ app.get('/api/movies/providers/:imdbId', async (req, res) => {
     return res.json(result);
   } catch (error) {
     console.error(`Error getting providers for ${imdbId}:`, error);
+    res.set('Cache-Control', 'no-store');
     return res.status(502).json({
       error: 'No se pudo consultar la disponibilidad',
       region: WATCH_REGION,
@@ -503,6 +517,7 @@ app.put('/api/movies/watchlist', async (req, res) => {
 
 // Servir la aplicación React/Preact para todas las rutas no-API
 app.get('*', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
