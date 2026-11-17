@@ -1,0 +1,18 @@
+# Stack de Películas. El workflow de CI/CD (.github/workflows/ci-cd.yml) lo copia a /opt/stacks/peliculas-danielita (producción)
+# o /opt/stacks/peliculas-danielita-pruebas y lo levanta con IMAGEN, CONTENEDOR y PUERTO definidos.
+services:
+  peliculas:
+    image: ${IMAGEN:?IMAGEN no definida}
+    container_name: ${CONTENEDOR:?CONTENEDOR no definido}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+    volumes:
+      # DATOS en el .env de producción apunta a la carpeta de siempre; pruebas usa ./data.
+      - ${DATOS:-./data}:/app/data
+    ports:
+      - "127.0.0.1:${PUERTO:?PUERTO no definido}:3000"
+    labels:
+      com.centurylinklabs.watchtower.enable: "false" # la imagen es local; la actualiza el CI/CD, no Watchtower
