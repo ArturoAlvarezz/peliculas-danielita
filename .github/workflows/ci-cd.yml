@@ -1,4 +1,4 @@
-# Plantilla CI/CD de Sinopia Labs v2 (centro de conocimiento: plantilla-ci-cd-con-github-actions). No editar fuera del bloque env.
+# Plantilla CI/CD de Sinopia Labs v3 (centro de conocimiento: plantilla-ci-cd-con-github-actions). No editar fuera del bloque env.
 #
 # PR desde una rama del repo -> pruebas (/opt/stacks/<STACK>-pruebas) · push a main -> producción (/opt/stacks/<STACK>)
 # PR desde un fork o de Dependabot -> solo build · Run workflow -> el destino elegido.
@@ -27,7 +27,7 @@ env:
   PUERTO_PRODUCCION: 8067
   PUERTO_PRUEBAS: 8167          # producción + 100
 # --- Fin de los datos del proyecto ---
-  CENTRAL_API: https://central.arturoalvarez.dev/api/v1
+  CENTRAL_API: https://central.sinopialabs.cl/api/v1
   VM: deploy@docker
 
 permissions:
